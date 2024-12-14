@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { transcribeFile } from "@/lib/utils/transcribeFile";
 
 export async function POST(request: Request) {
-  // * 1. primsa query to store trascript in Messages table
   try {
     // get the audio buffer from the request
     const audioBuffer = await request.arrayBuffer();
