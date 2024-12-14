@@ -1,4 +1,4 @@
-export const transcribeFile = async (audioFile: Buffer): Promise<string> => {
+export const sendToDeepgram = async (audioFile: Buffer): Promise<string> => {
 
   const response = await fetch("https://api.deepgram.com/v1/listen", {
     method: "POST",

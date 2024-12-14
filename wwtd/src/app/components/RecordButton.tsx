@@ -1,6 +1,10 @@
 "use client"
 import { useState, useEffect } from 'react';
 import { Mic } from 'lucide-react';
+import { useChatStore } from '../store/chat';
+import { transcribeAudioStream } from '@/lib/utils/transcribeAudio';
+import { createNewConversation } from '@/lib/api/newConversation';
+
 
 export const RecordButton = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -18,60 +22,59 @@ export const RecordButton = () => {
     voice,
   } = useChatStore();
   const [showModal, setShowModal] = useState(true);
-  const [isMobile] = useState(() => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
 
   useEffect(() => {
-    // Only initialize if conversationId
-    if (conversationId) {
-      const initMediaRecorder = async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!conversationId) return;
 
-          // Create and resume audio context
-          const context = new AudioContext();
-          await context.resume();
-          const analyserNode = context.createAnalyser();
-          analyserNode.fftSize = 32;
+    const initMediaRecorder = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-          const source = context.createMediaStreamSource(stream);
-          source.connect(analyserNode);
+        // Create and resume audio context
+        const context = new AudioContext();
+        await context.resume();
+        const analyserNode = context.createAnalyser();
+        analyserNode.fftSize = 32;
 
-          setAudioContext(context);
-          setAnalyser(analyserNode);
+        const source = context.createMediaStreamSource(stream);
+        source.connect(analyserNode);
 
-          const recorder = new MediaRecorder(stream);
-          setMediaRecorder(recorder);
+        setAudioContext(context);
+        setAnalyser(analyserNode);
 
-          recorder.ondataavailable = async (event) => {
-            if (event.data.size > 0) {
-              const audioBlob = new Blob([event.data], { type: "audio/wav" });
-              const audioStream = audioBlob.stream();
+        const recorder = new MediaRecorder(stream);
+        setMediaRecorder(recorder);
 
-              await transcribeAudioStream(audioStream, conversationId);
-              const response = await callLLM(conversationId);
-              setCurrentMessage(response.response);
-              setConversationState("speaking");
-              console.log("Voice: ", voice);
-              await generateSpeech(response.response, voice);
-              setConversationState("thinking");
-            }
-          };
-        } catch (error) {
-          console.error("Error initializing media recorder:", error);
-        }
-      };
+        recorder.ondataavailable = async (event) => {
+          if (event.data.size > 0) {
+            const audioBlob = new Blob([event.data], { type: "audio/wav" });
+            const audioStream = audioBlob.stream();
 
-      initMediaRecorder();
-      console.log("Media recorder initialized");
-      console.log("Voice: ", voice);
-    }
+            const transcription = await transcribeAudioStream(audioStream, conversationId);
+            console.log("Transcription: ", transcription);
+            // const response = await callLLM(conversationId);
+            // setCurrentMessage(response.response);
+            // setConversationState("speaking");
+            // console.log("Voice: ", voice);
+            // await generateSpeech(response.response, voice);
+            // setConversationState("thinking");
+          }
+        };
+      } catch (error) {
+        console.error("Error initializing media recorder:", error);
+      }
+    };
+
+    initMediaRecorder();
+    console.log("Media recorder initialized");
+    console.log("Voice: ", voice);
 
     return () => {
       if (audioContext) {
         audioContext.close();
       }
     };
-  }, [conversationId, voice]);
+  }, [voice, conversationId]);
 
   /// For audio animation
   useEffect(() => {
@@ -121,29 +124,18 @@ export const RecordButton = () => {
   };
 
   const stopAudio = async () => {
-    console.log("Stopping audio", isMobile ? "on mobile" : "on desktop");
     if (mediaRecorder) {
       mediaRecorder.stop();
       setIsRecording(false);
       console.log("Audio stopped");
       setConversationState("thinking");
 
-      // Pre-initialize audio for both mobile and desktop
+      // Pre-initialize audio
       const audio = new Audio();
       try {
-        if (isMobile) {
-          // Mobile needs more careful initialization
-          audio.muted = true;
-          await audio.play().catch(() => { });
-          audio.pause();
-          audio.muted = false;
-          console.log("Mobile audio pre-initialized");
-        } else {
-          // Desktop initialization
-          await audio.play().catch(() => { });
-          audio.pause();
-          console.log("Desktop audio pre-initialized");
-        }
+        await audio.play().catch(() => { });
+        audio.pause();
+        console.log("Audio pre-initialized");
       } catch (e) {
         console.log("Audio pre-initialization failed:", e);
       }
@@ -179,14 +171,34 @@ export const RecordButton = () => {
   };
 
   return (
-    <button
-      className="w-36 h-36 bg-red-600 rounded-full flex items-center justify-center hover:bg-red-700 transition-colors"
-      onClick={() => {
-        console.log("clicked");
-      }}
-    >
-      <Mic className="w-8 h-8 text-white" />
-    </button>
+    <div>
+      {showModal && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-black bg-opacity-25 z-50" />
+          {/* Modal Content */}
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8 max-w-sm w-full mx-4 shadow-xl">
+              <h2 className="text-xl font-semibold mb-4">Welcome</h2>
+              <p className="text-gray-600 mb-6">Ready to start your conversation?</p>
+              <button
+                onClick={handleStartSession}
+                className="w-full bg-blue-500 text-white rounded-lg py-2 px-4 hover:bg-blue-600 transition-colors"
+              >
+                Start a session
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+      <button
+        className="w-36 h-36 bg-red-600 rounded-full flex items-center justify-center hover:bg-red-700 transition-colors"
+        onClick={() => isRecording ? stopAudio() : recordAudio()}
+      >
+        <Mic className="w-8 h-8 text-white" />
+      </button>
+    </div>
+
   );
 };
 
