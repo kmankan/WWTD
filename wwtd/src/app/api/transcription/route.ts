@@ -3,7 +3,6 @@ import { sendToDeepgram } from "@/lib/utils/sendToDeepgram";
 import { addMessage } from "@/lib/db/queries";
 
 export async function POST(request: Request) {
-  // * 1. primsa query to store trascript in Messages table
   try {
     // get the conversation id from the request headers
     const conversationId = request.headers.get("x-conversation-id");
