@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { Mic } from 'lucide-react';
 import { useChatStore } from '../store/chat';
 import { transcribeAudioStream } from '@/lib/utils/transcribeAudio';
+import { createNewConversation } from '@/lib/api/newConversation';
+
 
 export const RecordButton = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -19,8 +21,11 @@ export const RecordButton = () => {
     setConversationInitiated,
     voice,
   } = useChatStore();
+  const [showModal, setShowModal] = useState(true);
 
   useEffect(() => {
+    if (!conversationId) return;
+
     const initMediaRecorder = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -45,7 +50,7 @@ export const RecordButton = () => {
             const audioBlob = new Blob([event.data], { type: "audio/wav" });
             const audioStream = audioBlob.stream();
 
-            const transcription = await transcribeAudioStream(audioStream);
+            const transcription = await transcribeAudioStream(audioStream, conversationId);
             console.log("Transcription: ", transcription);
             // const response = await callLLM(conversationId);
             // setCurrentMessage(response.response);
@@ -69,7 +74,7 @@ export const RecordButton = () => {
         audioContext.close();
       }
     };
-  }, [voice]);
+  }, [voice, conversationId]);
 
   /// For audio animation
   useEffect(() => {
@@ -156,13 +161,44 @@ export const RecordButton = () => {
     };
   }, [isRecording]);
 
+  const handleStartSession = async () => {
+    // create a new conversation
+    const conversation = await createNewConversation();
+    setConversationId(conversation.id);
+    setConversationInitiated(true);
+    console.log("Conversation created with id: ", conversation.id);
+    setShowModal(false);
+  };
+
   return (
-    <button
-      className="w-36 h-36 bg-red-600 rounded-full flex items-center justify-center hover:bg-red-700 transition-colors"
-      onClick={() => isRecording ? stopAudio() : recordAudio()}
-    >
-      <Mic className="w-8 h-8 text-white" />
-    </button>
+    <div>
+      {showModal && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-black bg-opacity-25 z-50" />
+          {/* Modal Content */}
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8 max-w-sm w-full mx-4 shadow-xl">
+              <h2 className="text-xl font-semibold mb-4">Welcome</h2>
+              <p className="text-gray-600 mb-6">Ready to start your conversation?</p>
+              <button
+                onClick={handleStartSession}
+                className="w-full bg-blue-500 text-white rounded-lg py-2 px-4 hover:bg-blue-600 transition-colors"
+              >
+                Start a session
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+      <button
+        className="w-36 h-36 bg-red-600 rounded-full flex items-center justify-center hover:bg-red-700 transition-colors"
+        onClick={() => isRecording ? stopAudio() : recordAudio()}
+      >
+        <Mic className="w-8 h-8 text-white" />
+      </button>
+    </div>
+
   );
 };
 

@@ -1,6 +1,7 @@
 export const transcribeAudioStream = async (
   // Convert ReadableStream to Blob
   readable: ReadableStream,
+  conversationId: string,
 ) => {
   const reader = readable.getReader();
   const chunks = [];
@@ -17,7 +18,8 @@ export const transcribeAudioStream = async (
     method: "POST",
     body: blob,
     headers: {
-      "Content-Type": "audio/webm"
+      "Content-Type": "audio/webm",
+      "x-conversation-id": conversationId,
     },
   });
   return response.json();
