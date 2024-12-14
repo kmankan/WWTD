@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { transcribeFile } from "@/lib/utils/transcribeFile";
+import { sendToDeepgram } from "@/lib/utils/sendToDeepgram";
 
 export async function POST(request: Request) {
   // * 1. primsa query to store trascript in Messages table
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
     // transcribe the audio buffer
     // ? Would it be better to make this a utility function that returns the transcript and also calls the LLM
-    const result = await transcribeFile(buffer);
+    const result = await sendToDeepgram(buffer);
     console.log("result", result);
 
     return NextResponse.json({
